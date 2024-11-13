@@ -4,9 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"os/user"
 
-	message "github.com/LuchoNicolosi/go-fundamentals-web-users/messages"
+	"github.com/LuchoNicolosi/go-fundamentals-web-users/internal/domain"
 )
 
 type (
@@ -29,54 +28,62 @@ func MakeEndpoints(ctx context.Context, service UserService) UserController {
 		case http.MethodGet:
 			GetAllUsers(ctx, service, res)
 		case http.MethodPost:
-			var user user.User
-			err := json.NewDecoder(req.Body).Decode(&user)
+			var data CreateRequest
+			err := json.NewDecoder(req.Body).Decode(&data)
 			if err != nil {
-				message.MsgResponse(res, http.StatusBadRequest, err.Error())
+				domain.MsgResponse(res, http.StatusBadRequest, err.Error())
 				return
 			}
-			CreateUser(res, user)
+			CreateUser(ctx, service, res, data)
 		default:
-			message.InvalidMethodResponse(res)
+			domain.InvalidMethodResponse(res)
+			return
 		}
 	}
 }
 
-func GetAllUsers(res http.ResponseWriter, req *http.Request) {
+func GetAllUsers(ctx context.Context, service UserService, res http.ResponseWriter) {
+	users, err := service.GetAll(ctx)
+	if err != nil {
+		domain.MsgResponse(res, http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	result, err := json.Marshal(users)
 	if err != nil {
-		message.MsgResponse(res, http.StatusBadRequest, err.Error())
+		domain.MsgResponse(res, http.StatusInternalServerError, err.Error())
 		return
 	}
-
-	message.DataResponse(res, http.StatusOK, result)
+	domain.DataResponse(res, http.StatusOK, result)
 }
 
-func CreateUser(res http.ResponseWriter, data interface{}) {
-	userData := data.(user.User)
+func CreateUser(ctx context.Context, service UserService, res http.ResponseWriter, data interface{}) {
+	reqData := data.(CreateRequest)
 
-	if userData.FirstName == "" {
-		message.MsgResponse(res, http.StatusBadRequest, "first name is required")
+	if reqData.FirstName == "" {
+		domain.MsgResponse(res, http.StatusBadRequest, "first name is required")
 		return
 	}
-	if userData.LastName == "" {
-		message.MsgResponse(res, http.StatusBadRequest, "last name is required")
+	if reqData.LastName == "" {
+		domain.MsgResponse(res, http.StatusBadRequest, "last name is required")
 		return
 	}
-	if userData.Email == "" {
-		message.MsgResponse(res, http.StatusBadRequest, "email is required")
+	if reqData.Email == "" {
+		domain.MsgResponse(res, http.StatusBadRequest, "email is required")
 		return
 	}
 
-	maxId++
-	userData.ID = maxId
-	users = append(users, userData)
-
-	result, err := json.Marshal(userData)
+	user, err := service.Create(ctx, reqData.FirstName, reqData.LastName, reqData.Email)
 	if err != nil {
-		message.MsgResponse(res, http.StatusBadRequest, err.Error())
+		domain.MsgResponse(res, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	message.DataResponse(res, http.StatusCreated, result)
+	result, err := json.Marshal(user)
+	if err != nil {
+		domain.MsgResponse(res, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	domain.DataResponse(res, http.StatusCreated, result)
 }

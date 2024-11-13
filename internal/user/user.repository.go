@@ -8,8 +8,8 @@ import (
 )
 
 type DB struct {
-	Users     []domain.User `json:"users"`
-	MaxUserID uint64        `json:"max_user_id"`
+	Users     []domain.User
+	MaxUserID uint64
 }
 
 type (
