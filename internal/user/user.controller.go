@@ -68,11 +68,11 @@ func makeGetByIdEndpoint(service UserService) UserController {
 func makeDeleteEndpoint(service UserService) UserController {
 	return func(ctx context.Context, data interface{}) (interface{}, error) {
 		result := data.(DeleteReq)
-		oldUser, err := service.Delete(ctx, result.UserID)
+		v, err := service.Delete(ctx, result.UserID)
 		if err != nil {
 			return nil, err
 		}
-		return oldUser, nil
+		return v, nil
 	}
 }
 
