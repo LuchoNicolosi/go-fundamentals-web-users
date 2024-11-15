@@ -17,7 +17,7 @@ type DB struct {
 type (
 	UserRepository interface {
 		Create(ctx context.Context, user *domain.User) error
-		Update(ctx context.Context, user *domain.User) error
+		Update(ctx context.Context, id uint64, firstName, lastName, email string) error
 		GetAll(ctx context.Context) ([]domain.User, error)
 		GetById(ctx context.Context, id uint64) (*domain.User, error)
 		Delete(ctx context.Context, id uint64) (string, error)
@@ -43,13 +43,21 @@ func (r *userRepository) Create(ctx context.Context, user *domain.User) error {
 	r.log.Println("Repository create")
 	return nil
 }
-func (r *userRepository) Update(ctx context.Context, user *domain.User) error {
-	index := slices.IndexFunc(r.db.Users, func(u domain.User) bool {
-		return u.ID == user.ID
-	})
+func (r *userRepository) Update(ctx context.Context, id uint64, firstName, lastName, email string) error {
+	user, err := r.GetById(ctx, id)
+	if err != nil {
+		return err
+	}
 
-	r.db.Users[index] = *user
-
+	if email != "" {
+		user.Email = email
+	}
+	if firstName != "" {
+		user.FirstName = firstName
+	}
+	if lastName != "" {
+		user.LastName = lastName
+	}
 	r.log.Println("Repository update")
 	return nil
 }

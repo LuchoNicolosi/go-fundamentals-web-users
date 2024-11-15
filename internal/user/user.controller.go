@@ -102,11 +102,10 @@ func makeUpdateEndpoint(service UserService) UserController {
 	return func(ctx context.Context, data interface{}) (interface{}, error) {
 		reqData := data.(UpdateRequest)
 
-		user, err := service.Update(ctx, reqData.UserID, reqData.FirstName, reqData.LastName, reqData.Email)
-		if err != nil {
+		if err := service.Update(ctx, reqData.UserID, reqData.FirstName, reqData.LastName, reqData.Email); err != nil {
 			return nil, err
 		}
 
-		return user, nil
+		return nil, nil
 	}
 }
