@@ -2,7 +2,6 @@ package user
 
 import (
 	"context"
-	"errors"
 	"fmt"
 )
 
@@ -81,15 +80,14 @@ func makeCreateEndpoint(service UserService) UserController {
 		reqData := data.(CreateRequest)
 
 		if reqData.FirstName == "" {
-			return nil, errors.New("first name is required")
+			return nil, ErrFistNameRequeried
 		}
 		if reqData.LastName == "" {
-			return nil, errors.New("last name is required")
+			return nil, ErrLastNameRequeried
 		}
 		if reqData.Email == "" {
-			return nil, errors.New("email is required")
+			return nil, ErrEmailRequeried
 		}
-
 		user, err := service.Create(ctx, reqData.FirstName, reqData.LastName, reqData.Email)
 		if err != nil {
 			return nil, err
