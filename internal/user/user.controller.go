@@ -2,88 +2,111 @@ package user
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-
-	"github.com/LuchoNicolosi/go-fundamentals-web-users/internal/domain"
+	"errors"
+	"fmt"
 )
 
 type (
-	UserController func(res http.ResponseWriter, req *http.Request)
+	UserController func(ctx context.Context, data interface{}) (interface{}, error)
 	Endpoints      struct {
-		Create UserController
-		GetAll UserController
+		Create  UserController
+		GetAll  UserController
+		GetById UserController
+		Update  UserController
+		Delete  UserController
 	}
 
+	GetReq struct {
+		UserID uint64
+	}
 	CreateRequest struct {
 		FirstName string `json:"first_name"`
 		LastName  string `json:"last_name"`
 		Email     string `json:"email"`
 	}
+	UpdateRequest struct {
+		UserID    uint64
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+		Email     string `json:"email"`
+	}
+	DeleteReq struct {
+		UserID uint64
+	}
 )
 
-func MakeEndpoints(ctx context.Context, service UserService) UserController {
-	return func(res http.ResponseWriter, req *http.Request) {
-		switch req.Method {
-		case http.MethodGet:
-			GetAllUsers(ctx, service, res)
-		case http.MethodPost:
-			var data CreateRequest
-			err := json.NewDecoder(req.Body).Decode(&data)
-			if err != nil {
-				domain.MsgResponse(res, http.StatusBadRequest, err.Error())
-				return
-			}
-			CreateUser(ctx, service, res, data)
-		default:
-			domain.InvalidMethodResponse(res)
-			return
+func MakeEndpoints(ctx context.Context, service UserService) Endpoints {
+	return Endpoints{
+		Create:  makeCreateEndpoint(service),
+		GetAll:  makeGetAllEndpoint(service),
+		GetById: makeGetByIdEndpoint(service),
+		Update:  makeUpdateEndpoint(service),
+		Delete:  makeDeleteEndpoint(service),
+	}
+}
+
+func makeGetAllEndpoint(service UserService) UserController {
+	return func(ctx context.Context, data interface{}) (interface{}, error) {
+		users, err := service.GetAll(ctx)
+		if err != nil {
+			return nil, err
 		}
+		return users, nil
+	}
+}
+func makeGetByIdEndpoint(service UserService) UserController {
+	return func(ctx context.Context, data interface{}) (interface{}, error) {
+		result := data.(GetReq)
+		fmt.Println(result.UserID)
+		user, err := service.GetById(ctx, result.UserID)
+		if err != nil {
+			return nil, err
+		}
+		return user, nil
+	}
+}
+func makeDeleteEndpoint(service UserService) UserController {
+	return func(ctx context.Context, data interface{}) (interface{}, error) {
+		result := data.(DeleteReq)
+		oldUser, err := service.Delete(ctx, result.UserID)
+		if err != nil {
+			return nil, err
+		}
+		return oldUser, nil
 	}
 }
 
-func GetAllUsers(ctx context.Context, service UserService, res http.ResponseWriter) {
-	users, err := service.GetAll(ctx)
-	if err != nil {
-		domain.MsgResponse(res, http.StatusInternalServerError, err.Error())
-		return
-	}
+func makeCreateEndpoint(service UserService) UserController {
+	return func(ctx context.Context, data interface{}) (interface{}, error) {
+		reqData := data.(CreateRequest)
 
-	result, err := json.Marshal(users)
-	if err != nil {
-		domain.MsgResponse(res, http.StatusInternalServerError, err.Error())
-		return
+		if reqData.FirstName == "" {
+			return nil, errors.New("first name is required")
+		}
+		if reqData.LastName == "" {
+			return nil, errors.New("last name is required")
+		}
+		if reqData.Email == "" {
+			return nil, errors.New("email is required")
+		}
+
+		user, err := service.Create(ctx, reqData.FirstName, reqData.LastName, reqData.Email)
+		if err != nil {
+			return nil, err
+		}
+
+		return user, nil
 	}
-	domain.DataResponse(res, http.StatusOK, result)
 }
+func makeUpdateEndpoint(service UserService) UserController {
+	return func(ctx context.Context, data interface{}) (interface{}, error) {
+		reqData := data.(UpdateRequest)
 
-func CreateUser(ctx context.Context, service UserService, res http.ResponseWriter, data interface{}) {
-	reqData := data.(CreateRequest)
+		user, err := service.Update(ctx, reqData.UserID, reqData.FirstName, reqData.LastName, reqData.Email)
+		if err != nil {
+			return nil, err
+		}
 
-	if reqData.FirstName == "" {
-		domain.MsgResponse(res, http.StatusBadRequest, "first name is required")
-		return
+		return user, nil
 	}
-	if reqData.LastName == "" {
-		domain.MsgResponse(res, http.StatusBadRequest, "last name is required")
-		return
-	}
-	if reqData.Email == "" {
-		domain.MsgResponse(res, http.StatusBadRequest, "email is required")
-		return
-	}
-
-	user, err := service.Create(ctx, reqData.FirstName, reqData.LastName, reqData.Email)
-	if err != nil {
-		domain.MsgResponse(res, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	result, err := json.Marshal(user)
-	if err != nil {
-		domain.MsgResponse(res, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	domain.DataResponse(res, http.StatusCreated, result)
 }
