@@ -2,7 +2,10 @@ package user
 
 import (
 	"context"
+	"errors"
 	"fmt"
+
+	"github.com/LuchoNicolosi/go-web-response/response"
 )
 
 type (
@@ -48,9 +51,9 @@ func makeGetAllEndpoint(service UserService) UserController {
 	return func(ctx context.Context, data interface{}) (interface{}, error) {
 		users, err := service.GetAll(ctx)
 		if err != nil {
-			return nil, err
+			return nil, response.InternalServerError(err.Error())
 		}
-		return users, nil
+		return response.OK("success", users), nil
 	}
 }
 func makeGetByIdEndpoint(service UserService) UserController {
@@ -59,9 +62,14 @@ func makeGetByIdEndpoint(service UserService) UserController {
 		fmt.Println(result.UserID)
 		user, err := service.GetById(ctx, result.UserID)
 		if err != nil {
-			return nil, err
+
+			if errors.As(err, &ErrNotFound{}) {
+				return nil, response.NotFound(err.Error())
+			}
+
+			return nil, response.InternalServerError(err.Error())
 		}
-		return user, nil
+		return response.OK("success", user), nil
 	}
 }
 func makeDeleteEndpoint(service UserService) UserController {
@@ -69,9 +77,9 @@ func makeDeleteEndpoint(service UserService) UserController {
 		result := data.(DeleteReq)
 		v, err := service.Delete(ctx, result.UserID)
 		if err != nil {
-			return nil, err
+			return nil, response.InternalServerError(err.Error())
 		}
-		return v, nil
+		return response.OK("success", v), nil
 	}
 }
 
@@ -80,20 +88,20 @@ func makeCreateEndpoint(service UserService) UserController {
 		reqData := data.(CreateRequest)
 
 		if reqData.FirstName == "" {
-			return nil, ErrFistNameRequeried
+			return nil, response.BadRequest(ErrFistNameRequeried.Error())
 		}
 		if reqData.LastName == "" {
-			return nil, ErrLastNameRequeried
+			return nil, response.BadRequest(ErrLastNameRequeried.Error())
 		}
 		if reqData.Email == "" {
-			return nil, ErrEmailRequeried
+			return nil, response.BadRequest(ErrEmailRequeried.Error())
 		}
 		user, err := service.Create(ctx, reqData.FirstName, reqData.LastName, reqData.Email)
 		if err != nil {
-			return nil, err
+			return nil, response.InternalServerError(err.Error())
 		}
 
-		return user, nil
+		return response.OK("success", user), nil
 	}
 }
 func makeUpdateEndpoint(service UserService) UserController {
