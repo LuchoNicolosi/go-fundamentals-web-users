@@ -3,7 +3,6 @@ package user
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/LuchoNicolosi/go-web-response/response"
 )
@@ -59,10 +58,8 @@ func makeGetAllEndpoint(service UserService) UserController {
 func makeGetByIdEndpoint(service UserService) UserController {
 	return func(ctx context.Context, data interface{}) (interface{}, error) {
 		result := data.(GetReq)
-		fmt.Println(result.UserID)
 		user, err := service.GetById(ctx, result.UserID)
 		if err != nil {
-
 			if errors.As(err, &ErrNotFound{}) {
 				return nil, response.NotFound(err.Error())
 			}
@@ -75,11 +72,13 @@ func makeGetByIdEndpoint(service UserService) UserController {
 func makeDeleteEndpoint(service UserService) UserController {
 	return func(ctx context.Context, data interface{}) (interface{}, error) {
 		result := data.(DeleteReq)
-		v, err := service.Delete(ctx, result.UserID)
-		if err != nil {
+		if err := service.Delete(ctx, result.UserID); err != nil {
+			if errors.As(err, &ErrNotFound{}) {
+				return nil, response.NotFound(err.Error())
+			}
 			return nil, response.InternalServerError(err.Error())
 		}
-		return response.OK("success", v), nil
+		return response.OK("success", nil), nil
 	}
 }
 
@@ -101,7 +100,7 @@ func makeCreateEndpoint(service UserService) UserController {
 			return nil, response.InternalServerError(err.Error())
 		}
 
-		return response.OK("success", user), nil
+		return response.Created("success", user), nil
 	}
 }
 func makeUpdateEndpoint(service UserService) UserController {
@@ -109,9 +108,13 @@ func makeUpdateEndpoint(service UserService) UserController {
 		reqData := data.(UpdateRequest)
 
 		if err := service.Update(ctx, reqData.UserID, reqData.FirstName, reqData.LastName, reqData.Email); err != nil {
-			return nil, err
+
+			if errors.As(err, &ErrNotFound{}) {
+				return nil, response.NotFound(err.Error())
+			}
+			return nil, response.InternalServerError(err.Error())
 		}
 
-		return nil, nil
+		return response.OK("success", nil), nil
 	}
 }

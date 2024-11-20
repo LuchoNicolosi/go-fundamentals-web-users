@@ -11,6 +11,7 @@ import (
 	"github.com/LuchoNicolosi/go-fundamentals-web-users/internal/domain"
 	"github.com/LuchoNicolosi/go-fundamentals-web-users/internal/user"
 	"github.com/LuchoNicolosi/go-fundamentals-web-users/pkg/transport"
+	"github.com/LuchoNicolosi/go-web-response/response"
 )
 
 func NewUserHTTPServer(ctx context.Context, router *http.ServeMux, endpoints user.Endpoints) {
@@ -128,20 +129,26 @@ func decodeDeleteUser(ctx context.Context, req *http.Request) (interface{}, erro
 	}, nil
 }
 func encodeResponse(ctx context.Context, res http.ResponseWriter, data interface{}) error {
-	resultData, err := json.Marshal(data)
-	if err != nil {
-		return err
+	if data != nil {
+		resData := data.(*response.SuccessResponse)
+
+		resultData, err := json.Marshal(resData)
+		if err != nil {
+			return err
+		}
+
+		res.WriteHeader(resData.StatusCode())
+		res.Header().Set("Content-Type", "application/json; charset=utf-8")
+		fmt.Fprintf(res, `%s`, resultData)
 	}
-	status := http.StatusOK
-	res.WriteHeader(status)
-	res.Header().Set("Content-Type", "application/json; charset=utf-8")
-	fmt.Fprintf(res, `{"status": %d,"data":%s`, status, resultData)
 	return nil
 }
 
 func encodeError(ctx context.Context, err error, res http.ResponseWriter) {
-	status := http.StatusInternalServerError
-	res.WriteHeader(status)
+	errData := err.(*response.ErrorResponse)
+	resultData, _ := json.Marshal(errData)
+
+	res.WriteHeader(errData.StatusCode())
 	res.Header().Set("Content-Type", "application/json; charset=utf-8")
-	fmt.Fprintf(res, `{"status": %d,"message":"%s"`, status, err.Error())
+	fmt.Fprintf(res, `%s`, resultData)
 }

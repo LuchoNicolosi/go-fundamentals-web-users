@@ -14,9 +14,19 @@ import (
 func main() {
 	server := http.NewServeMux()
 
-	db := boostrap.NewDB()
-	logger := boostrap.NewLogger()
+	db, err := boostrap.NewDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	if err := db.Ping(); err != nil {
+		log.Fatal(err)
+	}
 
+	defer db.Close()
+
+
+	logger := boostrap.NewLogger()
 	userRepository := user.NewRepository(db, logger)
 	userService := user.NewService(logger, userRepository)
 

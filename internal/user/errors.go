@@ -8,6 +8,7 @@ import (
 var ErrFistNameRequeried = errors.New("first name is required")
 var ErrLastNameRequeried = errors.New("last name is required")
 var ErrEmailRequeried = errors.New("email is required")
+var ErrThereArentFields = errors.New("there aren´t fields")
 
 type ErrNotFound struct {
 	ID uint64

@@ -1,38 +1,20 @@
 package boostrap
 
 import (
+	"database/sql"
 	"log"
 	"os"
 
-	"github.com/LuchoNicolosi/go-fundamentals-web-users/internal/domain"
-	"github.com/LuchoNicolosi/go-fundamentals-web-users/internal/user"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 func NewLogger() *log.Logger {
 	return log.New(os.Stdout, "", log.LstdFlags|log.Lshortfile)
 }
-func NewDB() user.DB {
-	return user.DB{
-		Users: []domain.User{
-			{
-				ID:        1,
-				FirstName: "lucho",
-				LastName:  "nicolosi",
-				Email:     "nicolosi@gmail.com",
-			},
-			{
-				ID:        2,
-				FirstName: "lucho2",
-				LastName:  "nicolosi",
-				Email:     "nicolosi2@gmail.com",
-			},
-			{
-				ID:        3,
-				FirstName: "lucho3",
-				LastName:  "nicolosi",
-				Email:     "nicolosi3@gmail.com",
-			},
-		},
-		MaxUserID: 3,
+func NewDB() (*sql.DB, error) {
+	db, err := sql.Open("mysql", "root:root@tcp(localhost:3336)/go_course_users")
+	if err != nil {
+		return nil, err
 	}
+	return db, nil
 }

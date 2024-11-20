@@ -13,7 +13,7 @@ type (
 		Update(ctx context.Context, id uint64, firstName, lastName, email string) error
 		GetAll(ctx context.Context) ([]domain.User, error)
 		GetById(ctx context.Context, id uint64) (*domain.User, error)
-		Delete(ctx context.Context, id uint64) (string, error)
+		Delete(ctx context.Context, id uint64) error
 	}
 
 	userService struct {
@@ -65,11 +65,9 @@ func (s userService) GetById(ctx context.Context, id uint64) (*domain.User, erro
 	s.log.Println("service get by id")
 	return user, nil
 }
-func (s userService) Delete(ctx context.Context, id uint64) (string, error) {
-	v, err := s.userRepository.Delete(ctx, id)
-	if err != nil {
-		return "", err
+func (s userService) Delete(ctx context.Context, id uint64) error {
+	if err := s.userRepository.Delete(ctx, id); err != nil {
+		return err
 	}
-	s.log.Println("service delete")
-	return v, nil
+	return nil
 }
