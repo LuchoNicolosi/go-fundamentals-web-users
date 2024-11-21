@@ -3,9 +3,11 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/LuchoNicolosi/go-fundamentals-web-users/internal/domain"
@@ -25,14 +27,16 @@ func UserServer(ctx context.Context, endpoints user.Endpoints) func(res http.Res
 
 		path, pathSize := transport.Clean(url)
 
-		// params := make(map[string]string)
-		var id string
+		params := make(map[string]string)
+
 		if pathSize == 4 && path[2] != "" {
-			id = path[2]
-			// params["userId"] = path[2]
+
+			params["userId"] = path[2]
 		}
 
-		t := transport.New(res, req, context.WithValue(ctx, "user_id", id))
+		params["token"] = req.Header.Get("Authorization")
+
+		t := transport.New(res, req, context.WithValue(ctx, "params", params))
 
 		var endpoint user.UserController
 		var decode func(ctx context.Context, req *http.Request) (interface{}, error)
@@ -84,12 +88,14 @@ func UserServer(ctx context.Context, endpoints user.Endpoints) func(res http.Res
 }
 
 func decodeGetUser(ctx context.Context, req *http.Request) (interface{}, error) {
-	userId, err := strconv.ParseUint(ctx.Value("user_id").(string), 10, 64)
+	params := ctx.Value("params").(map[string]string)
+
+	id, err := strconv.ParseUint(params["userId"], 10, 64)
 	if err != nil {
-		return nil, err
+		return nil, response.BadRequest(err.Error())
 	}
 	return user.GetReq{
-		UserID: userId,
+		UserID: id,
 	}, nil
 }
 
@@ -97,58 +103,69 @@ func decodeGetAllUser(ctx context.Context, req *http.Request) (interface{}, erro
 	return nil, nil
 }
 func decodeCreateUser(ctx context.Context, req *http.Request) (interface{}, error) {
+	params := ctx.Value("params").(map[string]string)
+	if err := tokenVerify(params["token"]); err != nil {
+		return nil, response.Unauthorized(err.Error())
+	}
+
 	var data user.CreateRequest
 	if err := json.NewDecoder(req.Body).Decode(&data); err != nil {
-		return nil, fmt.Errorf("invalid request format: %v", err.Error())
+		return nil, response.BadRequest(fmt.Sprintf("invalid request format: %v", err.Error()))
 	}
 	return data, nil
 }
 func decodeUpdateUser(ctx context.Context, req *http.Request) (interface{}, error) {
 	var data user.UpdateRequest
-	userId, err := strconv.ParseUint(ctx.Value("user_id").(string), 10, 64)
+	params := ctx.Value("params").(map[string]string)
+	if err := tokenVerify(params["token"]); err != nil {
+		return nil, response.Unauthorized(err.Error())
+	}
+	userId, err := strconv.ParseUint(params["userId"], 10, 64)
 	if err != nil {
-		return nil, err
+		return nil, response.BadRequest(err.Error())
 	}
 
 	data.UserID = userId
 
 	if err := json.NewDecoder(req.Body).Decode(&data); err != nil {
-		return nil, fmt.Errorf("invalid request format: %v", err.Error())
+		return nil, response.BadRequest(fmt.Sprintf("invalid request format: %v", err.Error()))
 	}
 
 	return data, nil
 }
 
 func decodeDeleteUser(ctx context.Context, req *http.Request) (interface{}, error) {
-	userId, err := strconv.ParseUint(ctx.Value("user_id").(string), 10, 64)
+	params := ctx.Value("params").(map[string]string)
+	if err := tokenVerify(params["token"]); err != nil {
+		return nil, response.Unauthorized(err.Error())
+	}
+	userId, err := strconv.ParseUint(params["userId"], 10, 64)
 	if err != nil {
-		return nil, err
+		return nil, response.BadRequest(err.Error())
 	}
 	return user.DeleteReq{
 		UserID: userId,
 	}, nil
 }
 func encodeResponse(ctx context.Context, res http.ResponseWriter, data interface{}) error {
-	if data != nil {
-		resData := data.(*response.SuccessResponse)
 
-		resultData, err := json.Marshal(resData)
-		if err != nil {
-			return err
-		}
-
-		res.WriteHeader(resData.StatusCode())
-		res.Header().Set("Content-Type", "application/json; charset=utf-8")
-		fmt.Fprintf(res, `%s`, resultData)
-	}
-	return nil
+	resData := data.(response.Response)
+	res.Header().Set("Content-Type", "application/json; charset=utf-8")
+	res.WriteHeader(resData.StatusCode())
+	return json.NewEncoder(res).Encode(data)
 }
 
 func encodeError(ctx context.Context, err error, res http.ResponseWriter) {
-	errData := err.(*response.ErrorResponse)
-	resultData, _ := json.Marshal(errData)
+	res.Header().Set("Content-Type", "application/json; charset=utf-8")
+	errData := err.(response.Response)
 
 	res.WriteHeader(errData.StatusCode())
-	res.Header().Set("Content-Type", "application/json; charset=utf-8")
-	fmt.Fprintf(res, `%s`, resultData)
+	_ = json.NewEncoder(res).Encode(errData)
+}
+
+func tokenVerify(token string) error {
+	if os.Getenv("TOKEN") != token {
+		return errors.New("invalid token")
+	}
+	return nil
 }

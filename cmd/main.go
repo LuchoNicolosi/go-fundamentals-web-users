@@ -13,11 +13,10 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var PORT = fmt.Sprintf(":%s", os.Getenv("PORT"))
+
 
 func main() {
 	godotenv.Load("../.env")
-
 	server := http.NewServeMux()
 
 	db, err := boostrap.NewDB()
@@ -39,7 +38,9 @@ func main() {
 
 	handler.NewUserHTTPServer(ctx, server, user.MakeEndpoints(ctx, userService))
 
-	fmt.Println("Server listening on 8080")
+	PORT := fmt.Sprintf(":%s", os.Getenv("PORT"))
+
+	fmt.Printf("Server listening on %s",PORT)
 
 	log.Fatal(http.ListenAndServe(PORT, server))
 }
