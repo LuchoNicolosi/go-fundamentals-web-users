@@ -13,13 +13,14 @@ import (
 	"github.com/joho/godotenv"
 )
 
-
-
 func main() {
-	godotenv.Load("../.env")
-	server := http.NewServeMux()
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
+	}
 
 	db, err := boostrap.NewDB()
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -36,11 +37,28 @@ func main() {
 
 	ctx := context.Background()
 
-	handler.NewUserHTTPServer(ctx, server, user.MakeEndpoints(ctx, userService))
+	h := handler.NewUserHTTPServer(user.MakeEndpoints(ctx, userService))
 
-	PORT := fmt.Sprintf(":%s", os.Getenv("PORT"))
+	PORT := os.Getenv("PORT")
+	address := fmt.Sprintf("localhost:%s", PORT)
 
-	fmt.Printf("Server listening on %s",PORT)
+	srv := &http.Server{
+		Handler: enableCORS(h),
+		Addr:    address,
+	}
 
-	log.Fatal(http.ListenAndServe(PORT, server))
+	fmt.Printf("Server listening on %s", PORT)
+
+	log.Fatal(srv.ListenAndServe())
+}
+func enableCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		if r.Method == http.MethodOptions {
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
